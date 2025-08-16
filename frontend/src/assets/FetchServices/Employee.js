@@ -77,6 +77,24 @@ export const reRegister = async (empId) => {
   }
 };
 
+// Permanently delete a terminated employee from the database
+export const deleteTerminatedEmployee = async (empId) => {
+  try {
+    console.log("API: Deleting terminated employee with empId:", empId);
+    const url = `${BASE_URL}/api/employees/delete-terminated`;
+    const data = { empId: empId };
+    const authConfig = getAuthHeaders();
+    console.log("API: Making request to:", url, "with data:", data, "and config:", authConfig);
+    const res = await axios.post(url, data, authConfig);
+    console.log("API: Response received:", res.data);
+    return res.data;
+  } catch (err) {
+    console.error("API: Error in deleteTerminatedEmployee:", err);
+    console.error("API: Error response:", err.response?.data);
+    throw err;
+  }
+};
+
 /**
  * 
  * @param {*} data expected data format 

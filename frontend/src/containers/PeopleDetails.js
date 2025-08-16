@@ -19,6 +19,9 @@ const api = require("../assets/FetchServices");
 // Number of rows to display on the table at a time.
 const rowsPerPage = 10;
 
+// Store original employee data globally to access from click handlers
+const originalEmployeeDataMap = new Map();
+
 function formatTableData({
   data,
   headCells,
@@ -29,9 +32,6 @@ function formatTableData({
   handleSurvey,
   handleTermination,
 }) {
-  // Store original employee data for editing
-  const originalEmployeeData = new Map();
-
   // Create set of actions - ensure fresh functions each time
   const actions = (employee) => {
     const empId = employee.empId;
@@ -41,7 +41,7 @@ function formatTableData({
     data.push({
       label: "Edit employee",
       action: () => {
-        const originalEmployee = originalEmployeeData.get(empId);
+        const originalEmployee = originalEmployeeDataMap.get(empId);
         if (originalEmployee) {
           handleEdit(originalEmployee);
         } else {
@@ -54,7 +54,7 @@ function formatTableData({
     data.push({
       label: "End employment",
       action: () => {
-        const originalEmployee = originalEmployeeData.get(empId);
+        const originalEmployee = originalEmployeeDataMap.get(empId);
         if (originalEmployee) {
           handleTermination(originalEmployee);
         } else {
@@ -104,8 +104,8 @@ function formatTableData({
   };
 
   data.forEach(async (emp) => {
-    // Store original employee data before formatting for display
-    originalEmployeeData.set(emp.empId, { ...emp });
+    // Store original employee data before formatting for display in global map
+    originalEmployeeDataMap.set(emp.empId, { ...emp });
 
     // Now format for display
     emp.name = `${emp.firstName} ${emp.lastName}`;
@@ -196,7 +196,7 @@ const tabItems = ({ isAdmin, loading, showActionHeader, employees, headCells, ha
           rowsPerPage={rowsPerPage}
           loading={loading}
           showActionHeader={false}
-          handleRowClick={handleTerminatedRowClick} // Use function that shows re-register modal
+          handleRowClick={handleTerminatedRowClick} // Use function that shows confirmation modal for re-registering employee
         />
       ),
     };
@@ -218,7 +218,8 @@ export default function People({ handleAddNewEmployee, handleEdit, handleSurvey,
   const [loading, setLoading] = useState(true);
   const [viewDetails, setViewDetails] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
-  const [showReRegisterModal, setShowReRegisterModal] = useState(false);
+  // Confirmation modal states for re-registering terminated employees
+  const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [employeeToReRegister, setEmployeeToReRegister] = useState(null);
   // const [editEmployee, setEditEmployee] = useState(false);
   const navigate = useNavigate();
@@ -242,16 +243,16 @@ export default function People({ handleAddNewEmployee, handleEdit, handleSurvey,
   useEffect(() => {
     async function fetchData() {
       try {
-        if (stateContext.state.pdEmployees) {
+        setLoading(true); // Set loading at the start
+        
+        if (stateContext.state.pdEmployees && !loading) {
           // Create fresh copy of data to avoid mutation issues
           const employeesCopy = JSON.parse(JSON.stringify(stateContext.state.pdEmployees));
           const freshParams = { ...params, data: employeesCopy };
           formatTableData(freshParams);
           setEmployees(freshParams.data);
-          setLoading(false);
         } else {
           const res = await api.employee.fetchAll();
-          setLoading(false);
           const freshParams = { ...params, data: res };
           formatTableData(freshParams);
           setEmployees(freshParams.data);
@@ -259,7 +260,7 @@ export default function People({ handleAddNewEmployee, handleEdit, handleSurvey,
         }
 
         if (stateContext.state.employee) {
-          if (stateContext.state.pdMyTeam) {
+          if (stateContext.state.pdMyTeam && !loading) {
             const teamCopy = JSON.parse(JSON.stringify(stateContext.state.pdMyTeam));
             const freshParams = { ...params, data: teamCopy, addActionMenu: true };
             formatTableData(freshParams);
@@ -274,7 +275,7 @@ export default function People({ handleAddNewEmployee, handleEdit, handleSurvey,
           }
         }
         if (isAdmin) {
-          if (stateContext.state.pdTerminated) {
+          if (stateContext.state.pdTerminated && !loading) {
             const terminatedCopy = JSON.parse(JSON.stringify(stateContext.state.pdTerminated));
             const freshParams = { ...params, data: terminatedCopy, addActionMenu: false };
             formatTableData(freshParams);
@@ -287,12 +288,15 @@ export default function People({ handleAddNewEmployee, handleEdit, handleSurvey,
             stateContext.updateState("pdTerminated", freshParams.data);
           }
         }
+        
+        setLoading(false); // Set loading to false after all data is fetched
       } catch (err) {
         console.error("Error fetching data:", err);
+        setLoading(false); // Ensure loading is set to false even on error
       }
     }
     fetchData();
-  }, [stateContext.state.pdEmployees, stateContext.state.pdMyTeam, stateContext.state.pdTerminated]);
+  }, [stateContext.state.pdEmployees, stateContext.state.pdMyTeam, stateContext.state.pdTerminated, loading]);
 
   // Handle preSelectedEmployee prop from PeopleHome
   useEffect(() => {
@@ -311,78 +315,183 @@ export default function People({ handleAddNewEmployee, handleEdit, handleSurvey,
     setViewDetails(true);
   };
 
-  // Handler for terminated employees - shows re-registration modal
+  // Handler for terminated employees - show confirmation modal first
   const handleTerminatedRowClick = (row) => {
+    console.log("Terminated employee clicked:", row);
     setEmployeeToReRegister(row);
-    setShowReRegisterModal(true);
+    setShowConfirmationModal(true);
   };
 
-  // Handle re-registration of terminated employee
-  const handleReRegister = async () => {
+  // Handle the actual re-registration after confirmation
+  const handleConfirmReRegistration = async () => {
     try {
-      console.log("Starting re-registration for employee:", employeeToReRegister);
+      console.log("Creating new employee from terminated employee:", employeeToReRegister);
       
-      if (!employeeToReRegister) {
-        console.error("No employee selected for re-registration");
+      // Get the original employee data (before formatting) to avoid data type issues
+      const originalEmployee = originalEmployeeDataMap.get(employeeToReRegister.empId) || employeeToReRegister;
+      console.log("Original employee data:", originalEmployee);
+      
+      // Validate that we have the necessary data
+      if (!originalEmployee.firstName || !originalEmployee.lastName || !originalEmployee.email) {
+        alert("Missing required employee information. Cannot create new employee.");
+        setShowConfirmationModal(false);
+        setEmployeeToReRegister(null);
         return;
       }
       
-      console.log("Calling API to re-register employee with empId:", employeeToReRegister.empId);
-      
-      // Call API to re-register the employee (remove termination data)
-      const response = await api.employee.reRegister(employeeToReRegister.empId);
-      
-      console.log("API response:", response);
-      
-      if (response && (response.employee || response.message)) {
-        console.log("Re-registration successful, updating UI...");
+      // Create a new employee object based on the terminated employee
+      // Remove fields that should be unique or auto-generated for new employee
+      const newEmployeeData = {
+        firstName: originalEmployee.firstName,
+        lastName: originalEmployee.lastName,
+        preferredName: originalEmployee.preferredName || originalEmployee.firstName,
+        gender: originalEmployee.gender,
+        nationality: originalEmployee.nationality,
+        dateOfBirth: originalEmployee.dateOfBirth,
+        maritalStatus: originalEmployee.maritalStatus,
         
-        // Update local state - remove from terminated list
+        // Generate new email based on name with timestamp to ensure uniqueness
+        email: `${originalEmployee.firstName?.toLowerCase()}.${originalEmployee.lastName?.toLowerCase()}.${Date.now()}@company.com`,
+        phoneNumber: originalEmployee.phoneNumber,
+        
+        // Set new hire date
+        hireDate: new Date().toISOString(),
+        effectiveDate: new Date().toISOString(),
+        
+        // Keep job-related fields - ensure numeric values are proper numbers
+        roleId: originalEmployee.roleId && !isNaN(originalEmployee.roleId) ? Number(originalEmployee.roleId) : null,
+        departmentId: originalEmployee.departmentId && !isNaN(originalEmployee.departmentId) ? Number(originalEmployee.departmentId) : null,
+        managerId: originalEmployee.managerId && !isNaN(originalEmployee.managerId) ? Number(originalEmployee.managerId) : null,
+        position: originalEmployee.position,
+        post: originalEmployee.post,
+        salary: originalEmployee.salary && !isNaN(originalEmployee.salary) ? Number(originalEmployee.salary) : 0,
+        employmentType: originalEmployee.employmentType,
+        compensationType: originalEmployee.compensationType,
+        weeklyHours: originalEmployee.weeklyHours && !isNaN(originalEmployee.weeklyHours) ? Number(originalEmployee.weeklyHours) : 40,
+        officeLocation: originalEmployee.officeLocation,
+        
+        // Keep address information
+        streetAddress: originalEmployee.streetAddress,
+        unitSuite: originalEmployee.unitSuite,
+        city: originalEmployee.city,
+        country: originalEmployee.country,
+        stateProvince: originalEmployee.stateProvince,
+        postalZipCode: originalEmployee.postalZipCode,
+        
+        // Keep emergency contact
+        emergencyContactName: originalEmployee.emergencyContactName,
+        emergencyContactRelationship: originalEmployee.emergencyContactRelationship,
+        emergencyContactPhoneNumber: originalEmployee.emergencyContactPhoneNumber,
+        
+        // Keep education and interests
+        degrees: originalEmployee.degrees,
+        fieldOfInterest: originalEmployee.fieldOfInterest,
+        
+        // Reset employment-specific fields
+        terminationReason: null,
+        terminationNote: null,
+        autoDeleteAt: null,
+        completedOnboardingAt: null,
+        photo: null // Reset photo
+      };
+      
+      // Prepare data in the format expected by the API
+      const apiData = {
+        inputs: newEmployeeData,
+        frontendUrl: window.location.origin // Use current domain for frontend URL
+      };
+      
+      console.log("Calling API to create new employee:", apiData);
+      
+      // Call API to create the new employee
+      const response = await api.employee.createOne(apiData);
+      
+      if (response && response.empId) {
+        console.log("New employee created successfully:", response);
+        
+        // Now delete the terminated employee record from the database
+        try {
+          console.log("Deleting terminated employee record from database:", employeeToReRegister.empId);
+          const deleteResponse = await api.employee.deleteTerminatedEmployee(employeeToReRegister.empId);
+          console.log("Terminated employee deleted from database:", deleteResponse);
+          
+          // Verify deletion was successful
+          if (deleteResponse && deleteResponse.message) {
+            console.log("Database deletion confirmed:", deleteResponse.message);
+          } else {
+            console.warn("Database deletion response unclear:", deleteResponse);
+          }
+        } catch (deleteError) {
+          console.error("Error deleting terminated employee from database:", deleteError);
+          // Continue with the process even if deletion fails
+          alert("Warning: Employee created successfully, but there was an issue removing the old record. You may see the employee in both lists temporarily.");
+        }
+        
+        alert(`New employee created successfully: ${response.firstName} ${response.lastName}`);
+        
+        // Immediately remove the employee from the terminated list (optimistic update)
         setTerminated(prev => {
           const updated = prev.filter(emp => emp.empId !== employeeToReRegister.empId);
-          console.log("Updated terminated list:", updated);
+          console.log("Removed employee from terminated list, updated list:", updated);
           return updated;
         });
         
-        // If we have employee data, add to active employees
-        if (response.employee) {
-          // Format the restored employee data and add to employees list
-          const freshParams = { 
-            ...params, 
-            data: [response.employee]
-          };
-          formatTableData(freshParams);
-          
-          setEmployees(prev => {
-            const updated = [...prev, ...freshParams.data];
-            console.log("Updated employees list:", updated);
-            return updated;
-          });
-        }
+        // Add the new employee to the active employees list (optimistic update)
+        const freshParams = { 
+          ...params, 
+          data: [response]
+        };
+        formatTableData(freshParams);
         
-        // Clear state context to force refresh on next load
+        setEmployees(prev => {
+          const updated = [...prev, ...freshParams.data];
+          console.log("Added new employee to active list:", updated);
+          return updated;
+        });
+        
+        // Remove the terminated employee from the original data map
+        originalEmployeeDataMap.delete(employeeToReRegister.empId);
+        
+        // Clear state context to ensure fresh data on next component mount
         stateContext.updateState("pdEmployees", null);
+        stateContext.updateState("pdMyTeam", null);
         stateContext.updateState("pdTerminated", null);
         
-        // Close modal and reset state
-        setShowReRegisterModal(false);
-        setEmployeeToReRegister(null);
+        // Force refresh the terminated employees list from database to ensure consistency
+        try {
+          console.log("Force refreshing terminated employees list from database");
+          const updatedTerminated = await api.employee.fetchTerminated();
+          const freshParams = { ...params, data: updatedTerminated, addActionMenu: false };
+          formatTableData(freshParams);
+          setTerminated(freshParams.data);
+          console.log("Terminated list refreshed, new count:", freshParams.data.length);
+        } catch (refreshError) {
+          console.error("Error refreshing terminated list:", refreshError);
+          // Keep the optimistic update if refresh fails
+        }
         
-        console.log("Employee re-registered successfully");
-        alert("Employee re-registered successfully!"); // Temporary feedback
       } else {
-        console.error("Invalid response from API:", response);
-        alert("Failed to re-register employee. Please try again.");
+        console.error("Failed to create employee:", response);
+        alert("Failed to create new employee. Please try again.");
       }
+      
+      // Close modal and reset state
+      setShowConfirmationModal(false);
+      setEmployeeToReRegister(null);
+      
     } catch (error) {
-      console.error("Error re-registering employee:", error);
-      alert("Error occurred while re-registering employee: " + error.message);
+      console.error("Error creating new employee from terminated employee:", error);
+      alert("Error occurred while creating new employee: " + (error.message || "Unknown error"));
+      
+      // Close modal and reset state even on error
+      setShowConfirmationModal(false);
+      setEmployeeToReRegister(null);
     }
   };
 
-  // Handle modal close
-  const handleCloseReRegisterModal = () => {
-    setShowReRegisterModal(false);
+  // Handle modal close/cancel
+  const handleCloseConfirmationModal = () => {
+    setShowConfirmationModal(false);
     setEmployeeToReRegister(null);
   };
 
@@ -502,36 +611,40 @@ export default function People({ handleAddNewEmployee, handleEdit, handleSurvey,
         )}
       </Stack>
 
-      {/* Re-registration Modal */}
+      {/* Re-registration Confirmation Modal */}
       <Dialog
-        open={showReRegisterModal}
-        onClose={handleCloseReRegisterModal}
-        aria-labelledby="re-register-dialog-title"
-        aria-describedby="re-register-dialog-description"
+        open={showConfirmationModal}
+        onClose={handleCloseConfirmationModal}
+        aria-labelledby="confirm-reregister-dialog-title"
+        aria-describedby="confirm-reregister-dialog-description"
       >
-        <DialogTitle id="re-register-dialog-title">
-          Re-register Employee
+        <DialogTitle id="confirm-reregister-dialog-title">
+          Create New Employee from Terminated Record
         </DialogTitle>
         <DialogContent>
-          <DialogContentText id="re-register-dialog-description">
+          <DialogContentText id="confirm-reregister-dialog-description">
             {employeeToReRegister && (
               <>
-                Do you want to re-register <strong>{employeeToReRegister.firstName} {employeeToReRegister.lastName}</strong>?
+                Do you want to create a new employee record based on <strong>{employeeToReRegister.firstName} {employeeToReRegister.lastName}</strong>?
                 <br /><br />
-                This will restore the employee to active status and remove them from the terminated employees list.
+                This will create a new employee record with a new employee ID and a unique email address.
+                The terminated record will be removed from the terminated employees list.
+                <br /><br />
+                <em>Position: {employeeToReRegister.position || 'Not specified'}</em><br />
+                <em>Department: {employeeToReRegister.department || 'Not specified'}</em>
               </>
             )}
           </DialogContentText>
         </DialogContent>
         <DialogActions>
           <Button 
-            onClick={handleCloseReRegisterModal}
+            onClick={handleCloseConfirmationModal}
             sx={{ textTransform: "none" }}
           >
             Cancel
           </Button>
           <Button 
-            onClick={handleReRegister} 
+            onClick={handleConfirmReRegistration} 
             variant="contained"
             sx={{ 
               textTransform: "none",
@@ -541,7 +654,7 @@ export default function People({ handleAddNewEmployee, handleEdit, handleSurvey,
               }
             }}
           >
-            Re-register
+            Create New Employee
           </Button>
         </DialogActions>
       </Dialog>

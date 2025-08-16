@@ -755,3 +755,101 @@ exports.reRegisterEmployee = async (req, res) => {
     });
   }
 };
+
+// Permanently delete a terminated employee record from the database
+exports.deleteTerminatedEmployee = async (req, res) => {
+  console.log("Delete terminated employee endpoint called with body:", req.body);
+  
+  try {
+    const { empId } = req.body;
+    
+    if (!empId) {
+      console.log("Missing empId in request");
+      throw { message: "Employee ID is required." };
+    }
+    
+    console.log("Attempting to delete terminated employee with empId:", empId);
+    
+    // Find the terminated employee (including soft-deleted ones)
+    const employee = await db.employee.findByPk(empId, {
+      paranoid: false, // Include soft-deleted records
+    });
+    
+    console.log("Found employee:", employee ? "Yes" : "No");
+    
+    if (!employee) {
+      console.log("Employee not found");
+      throw { message: "Employee not found." };
+    }
+
+    console.log("Employee termination status:", {
+      terminationReason: employee.terminationReason,
+      autoDeleteAt: employee.autoDeleteAt,
+      deletedAt: employee.deletedAt
+    });
+
+    // Check if employee is actually terminated
+    if (!employee.terminationReason && !employee.autoDeleteAt && !employee.deletedAt) {
+      console.log("Employee is not terminated");
+      throw { message: "Cannot delete active employee. Employee must be terminated first." };
+    }
+
+    // Find and delete the associated user account
+    const user = await db.appUser.findOne({
+      where: {
+        [db.Sequelize.Op.or]: [
+          { email: employee.email },
+          { empId: employee.empId },
+        ],
+      },
+      paranoid: false, // Include soft-deleted records
+    });
+
+    console.log("Found associated user:", user ? "Yes" : "No");
+
+    // Permanently delete the employee record first (this will cascade delete the user due to foreign key constraints)
+    console.log("Permanently deleting employee record with empId:", employee.empId);
+    const deleteResult = await employee.destroy({ force: true }); // Force delete (permanent)
+    console.log("Employee record deletion result:", deleteResult);
+    
+    // Verify the employee is actually deleted
+    const verifyDeleted = await db.employee.findByPk(empId, { paranoid: false });
+    if (verifyDeleted) {
+      console.error("ERROR: Employee record still exists after deletion attempt!");
+      throw { message: "Failed to permanently delete employee record." };
+    } else {
+      console.log("CONFIRMED: Employee record permanently deleted from database");
+    }
+
+    // The user should be automatically deleted due to CASCADE DELETE constraint
+    // But let's double-check and delete manually if it still exists
+    if (user) {
+      try {
+        const stillExists = await db.appUser.findByPk(user.id, { paranoid: false });
+        if (stillExists) {
+          console.log("User still exists, deleting manually");
+          await user.destroy({ force: true }); // Force delete (permanent)
+          console.log("User account manually deleted");
+        } else {
+          console.log("User account automatically deleted by CASCADE");
+        }
+      } catch (userDeleteError) {
+        console.log("User was already deleted by CASCADE or doesn't exist");
+      }
+    }
+
+    const responseData = {
+      message: "Terminated employee permanently deleted from database.",
+      empId: empId,
+    };
+    
+    console.log("Deletion completed successfully");
+    res.status(200).json(responseData);
+    
+  } catch (err) {
+    console.error("Error in deleteTerminatedEmployee:", err);
+    res.status(400).json({
+      message: err.message || "Failed to delete terminated employee.",
+    });
+  }
+};
