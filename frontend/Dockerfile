@@ -1,4 +1,3 @@
-
 FROM node:18-alpine
 
 # Enable corepack (ships with Node.js 16+ and manages pnpm)
