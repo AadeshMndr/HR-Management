@@ -1,3 +1,4 @@
+
 FROM node:18-alpine
 
 # Enable corepack (ships with Node.js 16+ and manages pnpm)
@@ -15,8 +16,8 @@ RUN pnpm install --frozen-lockfile
 # Copy rest of the application
 COPY . .
 
-# Expose backend port
-EXPOSE 5000
+# Expose frontend port
+EXPOSE 3000
 
 # Start the application
 CMD ["pnpm", "run", "start"]
