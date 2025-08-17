@@ -86,12 +86,12 @@ const DocumentViewer = ({ open, onClose, document }) => {
 
   // Handle download
   const handleDownload = () => {
-    const link = document.createElement('a');
+    const link = window.document.createElement('a');
     link.href = createDataUrl();
     link.download = `${documentName}.${documentExtension}`;
-    document.body.appendChild(link);
+    window.document.body.appendChild(link);
     link.click();
-    document.body.removeChild(link);
+    window.document.body.removeChild(link);
   };
 
   // Render document based on file type

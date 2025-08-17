@@ -159,14 +159,14 @@ function SecondStep() {
     useContext(multiStepContext);
 
   const handleDownload = (downloadable) => {
-    const link = document.createElement("a");
+    const link = window.document.createElement("a");
     link.href = `data:application/${
       downloadable.documentExtension
     };base64,${atob(downloadable.documentFile)}`;
     link.download = `${downloadable.documentName}.${downloadable.documentExtension}`;
-    document.body.appendChild(link);
+    window.document.body.appendChild(link);
     link.click();
-    document.body.removeChild(link);
+    window.document.body.removeChild(link);
   };
 
   const handleCheckBox = (e) => {
