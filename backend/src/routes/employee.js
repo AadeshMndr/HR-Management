@@ -6,11 +6,12 @@ module.exports = (router) => {
   router.route("/employees/public").get(controller.showAll); // Public route without auth
   router.route("/terminated").get(requireAuth, controller.showAllTerminated);
   router.route("/managers").get(requireAuth, controller.showManagers);
-  router.route("/employees/:id").post(requireAuth, controller.showOne);
   router.route("/employees/find/myteam/").post(requireAuth, controller.showMyTeam);
   router.route("/employees/find/email").post(requireAuth, controller.findOneByEmail);
   router.route("/employees/onboarding/done").post(requireAuth, controller.finalizeOnboarding);
   router.route("/employees/reregister").post(requireAuth, controller.reRegisterEmployee);
+  router.route("/employees/delete-terminated").post(requireAuth, controller.deleteTerminatedEmployee);
+  router.route("/employees/:id").post(requireAuth, controller.showOne);
   router.route("/employees").post(requireAuth, controller.createRecord);
   router.route("/employees").put(requireAuth, controller.updateRecord);
   router.route("/employees/").delete(requireAuth, controller.deleteRecord);
