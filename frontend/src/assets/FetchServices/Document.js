@@ -16,7 +16,7 @@ export const fetchAll = async () => {
 export const fetchOne = async (id) => {
   try {
     const url = `${BASE_URL}/api/documents/${id}`;
-    const res = await axios.post(url, addCred);
+    const res = await axios.post(url, {}, addCred);
     return res.data;
   } catch (err) {
     console.log(err);

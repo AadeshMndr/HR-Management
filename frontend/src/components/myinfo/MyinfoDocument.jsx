@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useContext } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import Box from "@mui/material/Box";
 import CloudUploadOutlinedIcon from "@mui/icons-material/CloudUploadOutlined";
 import { Typography, Stack } from "@mui/material";
@@ -12,14 +12,11 @@ import TableCell from "@mui/material/TableCell";
 import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
-import StateContext from "../../context/StateContext";
 import dayjs from "dayjs";
 import DocumentViewer from "../DocumentViewer/DocumentViewer";
 const api = require("../../assets/FetchServices");
 
-const MyinfoDocument = () => {
-  const stateContext = useContext(StateContext);
-
+const MyinfoDocument = ({ employee }) => {
   const fileInputRef = React.createRef();
   const [progress, setProgress] = useState(0);
   const [dragOver, setDragOver] = useState(false);
@@ -34,25 +31,27 @@ const MyinfoDocument = () => {
   useEffect(() => {
     async function fetchData() {
       try {
-        if (stateContext.state.mdFilelist) {
-          // md stands for my document
-          setFileList(stateContext.state.mdFilelist);
-        } else {
-          if (stateContext.state.employee) {
-            const empId = stateContext.state.employee.empId;
-            const results = await api.document.fetchOne(empId);
-            if (results) {
-              stateContext.updateState("mdFilelist", results);
-              setFileList(results);
-            }
+        if (employee && employee.empId) {
+          const empId = employee.empId;
+          console.log('Fetching documents for employee:', empId);
+          const results = await api.document.fetchOne(empId);
+          if (results && Array.isArray(results)) {
+            setFileList(results);
+            console.log('Documents loaded:', results.length);
+          } else {
+            setFileList([]);
+            console.log('No documents found for employee:', empId);
           }
+        } else {
+          setFileList([]);
         }
       } catch (error) {
-        console.log(error);
+        console.log('Error fetching documents:', error);
+        setFileList([]);
       }
     }
     fetchData();
-  }, []);
+  }, [employee]); // Include the full employee object to ensure proper refetch
 
   // Utility function to restrict the type of files that can be dragged and dropped
   const permittedFile = (fileName) => {
@@ -90,7 +89,7 @@ const MyinfoDocument = () => {
       reader.onload = async function (event) {
         const base64String = await event.target.result.split(",")[1]; // Extract base64 string
         const uploadFile = {
-          empId: stateContext.state.employee.empId,
+          empId: employee.empId,
           documentName: name,
           documentExtension,
           dateUploaded,
@@ -103,12 +102,22 @@ const MyinfoDocument = () => {
     }
   };
   const saveAndUploadFile = async (file) => {
-    // Save file
-    const files = [...filelist, file];
-    setFileList(files);
-    stateContext.updateState("mdFilelist", files);
-    // Upload to backend
-    await api.document.createOneWithProgressReport(file, setProgress);
+    try {
+      // Upload to backend first
+      const response = await api.document.createOneWithProgressReport(file, setProgress);
+      
+      if (response && response.data) {
+        // Update the file with the server response (including the ID)
+        const savedFile = response.data;
+        const files = [...filelist, savedFile];
+        setFileList(files);
+        console.log('Document uploaded successfully:', savedFile);
+      } else {
+        console.error('Failed to upload document to server');
+      }
+    } catch (error) {
+      console.error('Error uploading document:', error);
+    }
   };
 
   // Trigger file input
@@ -141,7 +150,6 @@ const MyinfoDocument = () => {
     const newFilelist = filelist.filter((_, i) => i !== index);
     // Update the state with the new array
     setFileList(newFilelist);
-    stateContext.updateState("mdFilelist", newFilelist);
 
     // Delete from the backend
     api.document.remove(id);
