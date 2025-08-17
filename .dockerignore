@@ -1,0 +1,59 @@
+# Docker ignore file for HR Management Application
+
+# Git files
+.git
+.gitignore
+
+# Documentation
+*.md
+*.txt
+LICENSE
+
+# Docker files
+docker-compose.yaml
+docker-compose.yml
+**/docker-compose.yaml
+**/docker-compose.yml
+
+# Node modules (will be installed in container)
+**/node_modules
+**/.pnpm-store
+
+# Frontend build artifacts (will be built in container)
+frontend/build
+frontend/dist
+
+# Backend logs and temp files
+backend/logs
+**/*.log
+
+# Database files
+**/*.sql
+database/
+
+# IDE and editor files
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Temporary files
+*.tmp
+*.temp
