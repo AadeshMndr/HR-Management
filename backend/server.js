@@ -1,7 +1,7 @@
+require("dotenv").config();
 const db = require("./models");
 const express = require("express");
 const cors = require("cors");
-require("dotenv").config();
 const bodyParser = require("body-parser");
 const cookieParser = require("cookie-parser");
 const app = express();

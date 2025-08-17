@@ -3,11 +3,11 @@ require('dotenv').config({ path: `${process.cwd()}/.env` });
 
 module.exports = {
     development: {
-        username: process.env.USER,
-        password: process.env.PASSWORD,
-        database: process.env.DB,
-        host: process.env.HOST,
-        port: process.env.PORT,
+        username: process.env.DB_USER,
+        password: process.env.DB_PASSWORD,
+        database: process.env.DB_NAME,
+        host: process.env.DB_HOST,
+        port: process.env.DB_PORT,
         dialect: 'postgres',
         seederStorage: 'sequelize',
     },

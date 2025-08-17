@@ -11,29 +11,48 @@ if ! docker info > /dev/null 2>&1; then
     exit 1
 fi
 
-# Check if network exists, create if not
-if ! docker network ls | grep -q "app-network"; then
-    echo "📡 Creating Docker network..."
-    docker network create app-network
+# Check if pnpm is installed
+if ! command -v pnpm > /dev/null 2>&1; then
+    echo "❌ pnpm is not installed. Please install pnpm first."
+    exit 1
 fi
 
-echo "🗄️  Starting Backend (Database + API)..."
-cd backend
-docker compose up --build -d
-echo "✅ Backend started on http://localhost:5000"
+echo "🗄️  Starting Database..."
+cd database
+docker compose up -d
+cd ..
+echo "✅ Database started on localhost:5432"
 echo "🔍 Database admin panel available on http://localhost:8080"
 
 echo ""
-echo "🌐 Starting Frontend..."
+echo "📦 Installing dependencies..."
+
+# Install backend dependencies
+echo "Installing backend dependencies..."
+cd backend
+if [ ! -d "node_modules" ]; then
+    pnpm install
+fi
+
+# Install frontend dependencies  
+echo "Installing frontend dependencies..."
 cd ../frontend
-docker compose up --build -d
-echo "✅ Frontend started on http://localhost:3000"
+if [ ! -d "node_modules" ]; then
+    pnpm install
+fi
+
+cd ..
 
 echo ""
-echo "🎉 Application is now running!"
-echo "📱 Frontend: http://localhost:3000"
-echo "🔧 Backend API: http://localhost:5000" 
+echo "🎉 Setup complete!"
+echo ""
+echo "To start the application:"
+echo "1. Start backend: cd backend && pnpm start"
+echo "2. Start frontend: cd frontend && pnpm start"
+echo ""
+echo "Application URLs:"
+echo "📱 Frontend: http://localhost:3000 (after starting)"
+echo "🔧 Backend API: http://localhost:5000 (after starting)"
 echo "🗄️  Database Admin: http://localhost:8080"
 echo ""
-echo "To stop the application, run: ./stop-app.sh"
-echo "To view logs, run: docker compose logs -f (in respective directories)"
+echo "To stop the database, run: ./stop-app.sh"

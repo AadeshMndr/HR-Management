@@ -2,7 +2,7 @@ version: "3.8"
 
 services:
   database:
-    image: postgres:15
+    image: postgres:17
     ports:
       - "5432:5432"
     restart: always
@@ -12,9 +12,7 @@ services:
       POSTGRES_DB: SingleDatabase
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./backend/database_backup_pg15_fixed_utf8.sql:/docker-entrypoint-initdb.d/init.sql:ro
-    networks:
-      - app-network
+      - ./database_backup_pg15_fixed_utf8.sql:/docker-entrypoint-initdb.d/init.sql:ro
 
   uipanel:
     image: adminer
@@ -23,12 +21,6 @@ services:
       - database
     ports:
       - "8080:8080"
-    networks:
-      - app-network
 
 volumes:
   postgres_data:
-
-networks:
-  app-network:
-    driver: bridge
