@@ -136,7 +136,7 @@ function RowStack({ children }) {
   );
 }
 
-function createHeader(employee, handleDiscard) {
+function createHeader(employee, handleDiscard, handleDownloadContract) {
   return (
     <Box
       sx={{
@@ -153,28 +153,52 @@ function createHeader(employee, handleDiscard) {
         {employee ? "Edit my info" : "Add a new employee"}
       </Typography>
 
-      <Button
-        variant="contained"
-        disableElevation
-        onClick={() => handleDiscard(true)}
-        sx={{
-          width: "auto",
-          height: "34px",
-          border: "1px solid #D0D5DD",
-          backgroundColor: "#FFFFFF",
-          color: "#000000",
-          fontSize: 13,
-          fontWeight: 400,
-          fontFamily: "Inter",
-          textTransform: "none",
-          "&:hover": {
-            backgroundColor: "#F5F5F5",
+      <Stack direction="row" spacing={2}>
+        <Button
+          variant="contained"
+          disableElevation
+          onClick={handleDownloadContract}
+          sx={{
+            width: "auto",
+            height: "34px",
+            border: "1px solid #7F56D9",
+            backgroundColor: "#7F56D9",
+            color: "#FFFFFF",
+            fontSize: 13,
+            fontWeight: 400,
+            fontFamily: "Inter",
+            textTransform: "none",
+            "&:hover": {
+              backgroundColor: "#602ece",
+              border: "1px solid #602ece",
+            },
+          }}
+        >
+          Download Contract Documents
+        </Button>
+        <Button
+          variant="contained"
+          disableElevation
+          onClick={() => handleDiscard(true)}
+          sx={{
+            width: "auto",
+            height: "34px",
             border: "1px solid #D0D5DD",
-          },
-        }}
-      >
-        Discard and go back
-      </Button>
+            backgroundColor: "#FFFFFF",
+            color: "#000000",
+            fontSize: 13,
+            fontWeight: 400,
+            fontFamily: "Inter",
+            textTransform: "none",
+            "&:hover": {
+              backgroundColor: "#F5F5F5",
+              border: "1px solid #D0D5DD",
+            },
+          }}
+        >
+          Discard and go back
+        </Button>
+      </Stack>
     </Box>
   );
 }
@@ -723,6 +747,29 @@ function EmployeeForm({ employee, restricted, onDiscard, onSave }) {
     }
     setPrompt(value);
   };
+
+  const handleDownloadContract = () => {
+    // Download contract paper document
+    const contractLink = document.createElement('a');
+    contractLink.href = '/contractpaper.docx';
+    contractLink.download = 'contractpaper.docx';
+    contractLink.target = '_blank';
+    document.body.appendChild(contractLink);
+    contractLink.click();
+    document.body.removeChild(contractLink);
+
+    // Download new employee form PDF with a slight delay
+    setTimeout(() => {
+      const pdfLink = document.createElement('a');
+      pdfLink.href = '/NewEmployeeForm.pdf';
+      pdfLink.download = 'NewEmployeeForm.pdf';
+      pdfLink.target = '_blank';
+      document.body.appendChild(pdfLink);
+      pdfLink.click();
+      document.body.removeChild(pdfLink);
+    }, 100);
+  };
+
   const handleCancel = () => {
     setPrompt(false);
   };
@@ -735,7 +782,7 @@ function EmployeeForm({ employee, restricted, onDiscard, onSave }) {
       sx={{ minHeight: "100vh", border: "0px solid red" }}
     >
       {change && prompt && <PopupModal onAccept={handleSubmit} onDiscard={() => handleDiscard(false)} onCancel={handleCancel} />}
-      {createHeader(employee, handleDiscard)}
+      {createHeader(employee, handleDiscard, handleDownloadContract)}
       <form>
         <Stack spacing={5} sx={{ border: "0px blue solid", width: "100%", minWidth: "100%" }}>
           {/* Personal Information container begins here */}
