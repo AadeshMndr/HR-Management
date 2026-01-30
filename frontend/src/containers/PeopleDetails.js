@@ -109,13 +109,27 @@ function formatTableData({
 
     // Now format for display
     emp.name = `${emp.firstName} ${emp.lastName}`;
-    emp.role = emp.role && emp.role.roleTitle;
-    emp.team = emp.team && emp.team.teamName ? emp.team.teamName : "New Team"; // Added by Ankit: set default team name
-    emp.department = emp.department && emp.department.departmentName;
+    if (emp.role && typeof emp.role === 'object') {
+      emp.role = emp.role.roleTitle;
+    }
+    if (emp.team && typeof emp.team === 'object') {
+      emp.team = emp.team.teamName ? emp.team.teamName : "New Team";
+    }
+    if (emp.department && typeof emp.department === 'object') {
+      emp.department = emp.department.departmentName;
+    }
     emp.manager = emp.Manager && `${emp.Manager.firstName} ${emp.Manager.lastName}`;
     emp.salary = Number(emp.salary).toLocaleString();
-    emp.hireDate = emp.hireDate && dayjs(emp.hireDate).format("DD MMMM, YYYY");
-    emp.dateOfBirth = emp.dateOfBirth && dayjs(emp.dateOfBirth).format("DD MMMM, YYYY");
+    if (emp.hireDate && !dayjs(emp.hireDate).isValid()) {
+        // assume it's already formatted or handle error
+    } else if (emp.hireDate) {
+        emp.hireDate = dayjs(emp.hireDate).format("DD MMMM, YYYY");
+    }
+     if (emp.dateOfBirth && !dayjs(emp.dateOfBirth).isValid()) {
+         // assume it's already formatted
+    } else if (emp.dateOfBirth) {
+        emp.dateOfBirth = dayjs(emp.dateOfBirth).format("DD MMMM, YYYY");
+    }
     emp.phoneNumber = formatPhoneNumber(emp.phoneNumber);
   });
 
@@ -253,10 +267,12 @@ export default function People({ handleAddNewEmployee, handleEdit, handleSurvey,
           setEmployees(freshParams.data);
         } else {
           const res = await api.employee.fetchAll();
-          const freshParams = { ...params, data: res };
+          stateContext.updateState("pdEmployees", res); // Store raw data
+          
+          const employeesCopy = JSON.parse(JSON.stringify(res)); // Create copy for formatting
+          const freshParams = { ...params, data: employeesCopy };
           formatTableData(freshParams);
           setEmployees(freshParams.data);
-          stateContext.updateState("pdEmployees", freshParams.data);
         }
 
         if (stateContext.state.employee) {
@@ -268,10 +284,12 @@ export default function People({ handleAddNewEmployee, handleEdit, handleSurvey,
           } else {
             const managerId = stateContext.state.employee.empId;
             const team = await api.employee.fetchMyTeam(managerId);
-            const freshParams = { ...params, data: team, addActionMenu: true };
+            stateContext.updateState("pdMyTeam", team); // Store raw data
+            
+            const teamCopy = JSON.parse(JSON.stringify(team)); // Create copy for formatting
+            const freshParams = { ...params, data: teamCopy, addActionMenu: true };
             formatTableData(freshParams);
             setMyTeam(freshParams.data);
-            stateContext.updateState("pdMyTeam", freshParams.data);
           }
         }
         if (isAdmin) {
@@ -282,10 +300,12 @@ export default function People({ handleAddNewEmployee, handleEdit, handleSurvey,
             setTerminated(freshParams.data);
           } else {
             const terms = await api.employee.fetchTerminated();
-            const freshParams = { ...params, data: terms, addActionMenu: false };
+            stateContext.updateState("pdTerminated", terms); // Store raw data
+            
+            const termsCopy = JSON.parse(JSON.stringify(terms)); // Create copy for formatting
+            const freshParams = { ...params, data: termsCopy, addActionMenu: false };
             formatTableData(freshParams);
             setTerminated(freshParams.data);
-            stateContext.updateState("pdTerminated", freshParams.data);
           }
         }
         
